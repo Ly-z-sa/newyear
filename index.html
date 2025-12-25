@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 Grand Finale Show</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: black;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #start-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 50px;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(45deg, #ff0000, #ff7300);
+            border: none;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+            z-index: 10;
+            transition: 0.3s;
+        }
+        #start-btn:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+    <button id="start-btn">START 2026 SHOW</button>
+    <canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('start-btn');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// --- Audio ---
+const countdownTrack = new Audio('countdown.m4a');
+const cheerSound = new Audio('cheer.mp3');
+const explodeSound = new Audio('expode.mp3');
+
+// --- State ---
+let showStarted = false;
+let startTime = 0;
+const countdownDuration = 10000; 
+let fireworks = [];
+let flashTimer = 0;
+let cheerPlayed = false;
+let explosionLoopStarted = false;
+
+// --- Typing Animation Variables ---
+const wishMessage = "Wishing everyone a fantastic 2026 filled with joy, health, and success!";
+let charIndex = 0;
+let lastTypeTime = 0;
+const typeSpeed = 50; // Milliseconds per character
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x; this.y = y; this.color = color;
+        let angle = Math.random() * Math.PI * 2;
+        let speed = Math.random() * 6 + 2;
+        this.velX = Math.cos(angle) * speed;
+        this.velY = Math.sin(angle) * speed;
+        this.life = Math.random() * 40 + 30;
+    }
+    update() {
+        this.x += this.velX; this.y += this.velY;
+        this.velY += 0.12; this.velX *= 0.96; this.velY *= 0.96;
+        this.life--;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life / 70;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Firework {
+    constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = canvas.height;
+        this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+        this.velY = Math.random() * -12 - 8;
+        this.exploded = false;
+        this.particles = [];
+    }
+    update() {
+        if (!this.exploded) {
+            this.y += this.velY; this.velY += 0.25;
+            if (this.velY >= 0) {
+                this.exploded = true;
+                for (let i = 0; i < 100; i++) this.particles.push(new Particle(this.x, this.y, this.color));
+            }
+        } else {
+            this.particles.forEach(p => p.update());
+            this.particles = this.particles.filter(p => p.life > 0);
+        }
+    }
+    draw() {
+        if (!this.exploded) {
+            ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, 5, 0, Math.PI * 2); ctx.fill();
+        } else {
+            this.particles.forEach(p => p.draw());
+        }
+    }
+}
+
+function animate() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (!showStarted) return;
+
+    let currentTime = Date.now();
+    let elapsed = currentTime - startTime;
+    let secondsLeft = Math.ceil((countdownDuration - elapsed) / 1000);
+
+    if (secondsLeft > 0) {
+        // Countdown Phase
+        let fraction = (elapsed % 1000) / 1000;
+        let scale = 1 + (1 - fraction) * 0.5;
+        let hue = (currentTime / 5) % 360;
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        if (secondsLeft <= 3) ctx.translate(Math.random() * 10 - 5, Math.random() * 10 - 5);
+        ctx.scale(scale, scale);
+        ctx.font = "250px Impact"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillStyle = `hsl(${hue}, 90%, 60%)`;
+        ctx.fillText(secondsLeft, 0, 0);
+        ctx.restore();
+    } else {
+        // Celebration Phase
+        if (!cheerPlayed) {
+            cheerPlayed = true; cheerSound.play(); flashTimer = 12;
+        }
+
+        if (!explosionLoopStarted) {
+            explosionLoopStarted = true;
+            explodeSound.play();
+            setInterval(() => { explodeSound.currentTime = 0; explodeSound.play(); }, 36000);
+        }
+
+        if (Math.random() < 0.08) fireworks.push(new Firework());
+
+        fireworks.forEach((fw, index) => {
+            fw.update(); fw.draw();
+            if (fw.exploded && fw.particles.length === 0) fireworks.splice(index, 1);
+        });
+
+        // 1. HAPPY NEW YEAR Text
+        let hue = (currentTime / 10) % 360;
+        ctx.font = "bold 80px Impact"; ctx.textAlign = "center";
+        ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+        ctx.fillText("HAPPY NEW YEAR 2026", canvas.width / 2, canvas.height / 2 - 20);
+
+        // 2. Typing Animation Message
+        if (currentTime - lastTypeTime > typeSpeed && charIndex < wishMessage.length) {
+            charIndex++;
+            lastTypeTime = currentTime;
+        }
+        
+        ctx.font = "italic 30px Verdana, sans-serif";
+        ctx.fillStyle = "white";
+        // Substring based on charIndex creates the "typing" look
+        ctx.fillText(wishMessage.substring(0, charIndex), canvas.width / 2, canvas.height / 2 + 60);
+
+        if (flashTimer > 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${flashTimer / 12})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            flashTimer--;
+        }
+    }
+    requestAnimationFrame(animate);
+}
+
+startBtn.addEventListener('click', () => {
+    startBtn.style.display = 'none';
+    showStarted = true;
+    startTime = Date.now();
+    countdownTrack.play();
+    animate();
+});
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
